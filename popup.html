@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cashu Wallet</title>
+    <link rel="stylesheet" href="styles/popup.css">
+</head>
+<body>
+    <div id="wallet">
+        <h1>Cashu Wallet</h1>
+        
+        <!-- Display Balance -->
+        <p>Balance: <span id="balance">0</span> Cashu</p>
+        
+        <!-- Send Tokens Section -->
+        <div id="sendTokensSection">
+            <input type="text" id="recipientAddress" placeholder="Recipient Address">
+            <input type="number" id="amountToSend" placeholder="Amount">
+            <button id="confirmSendButton">Send Tokens</button>
+            <p id="sendFeedback"></p>
+        </div>
+        
+        <!-- Receive Tokens Section -->
+        <div id="receiveTokensSection">
+            <button id="generateAddressButton">Generate Receiving Address</button>
+            <p id="receivingAddress"></p>
+            <!-- Optionally, display a QR code for the address -->
+        </div>
+        
+        <!-- Transaction History -->
+        <div id="transactionHistory">
+            <h2>Transaction History</h2>
+            <ul id="transactionList"></ul>
+        </div>
+    </div>
+    <script type="application/javascript" src="dist/browser-polyfill.js"></script>
+    <script type="application/javascript" src="dist/popup.js"></script>
+</body>
+</html>
