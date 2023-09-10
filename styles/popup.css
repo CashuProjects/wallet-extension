@@ -1,62 +1,70 @@
 body {
   font-family: Arial, sans-serif;
-  width: 300px;
+  width: 350px; /* Increased width */
   background-color: #f4f4f4;
   margin: 0;
-  padding: 0;
+  padding: 15px; /* Added padding around the body */
 }
 
 #wallet {
-  padding: 20px;
+  padding: 25px; /* Increased padding */
   background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  border-radius: 10px; /* Slightly larger border radius */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 h1 {
   font-size: 24px;
-  margin-bottom: 20px;
+  margin-bottom: 25px; /* Increased margin */
   color: #333;
 }
 
 p {
   font-size: 16px;
   color: #555;
+  margin-bottom: 15px; /* Added margin for spacing */
 }
 
 input[type="text"], input[type="number"] {
+  box-sizing: border-box; /* This ensures padding and border are included in the total width */
   width: 100%;
-  padding: 10px;
-  margin-bottom: 10px;
+  padding: 12px;
+  margin-bottom: 15px;
   border: 1px solid #ccc;
-  border-radius: 4px;
+  border-radius: 5px;
   font-size: 16px;
+  margin-right: 15px; /* Add right margin */
+}
+
+.input-container {
+  margin-bottom: 20px; /* Adds bottom margin to separate from the end of the popup */
 }
 
 button {
   display: block;
   width: 100%;
-  padding: 10px;
-  background-color: #007bff;
+  padding: 12px; /* Increased padding */
+  background-color: #6A2FB0; /* Cashu's purple shade */
   color: #fff;
   border: none;
-  border-radius: 4px;
+  border-radius: 5px; /* Slightly larger border radius */
   font-size: 16px;
   cursor: pointer;
   transition: background-color 0.3s;
+  margin-top: 10px; /* Added margin for spacing */
 }
 
 button:hover {
-  background-color: #0056b3;
+  background-color: #552A8B; /* Darker shade of Cashu's purple */
 }
 
 #sendFeedback {
-  margin-top: 10px;
+  margin-top: 15px; /* Increased margin */
   color: red;
 }
 
 #transactionHistory h2 {
-  margin-top: 20px;
+  margin-top: 25px; /* Increased margin */
   font-size: 20px;
   color: #333;
 }
@@ -67,7 +75,19 @@ button:hover {
 }
 
 #transactionList li {
-  padding: 10px;
+  padding: 12px; /* Increased padding */
   border-bottom: 1px solid #eee;
 }
 
+#receivingAddress {
+  height: 40px; /* or whatever height you find appropriate */
+  border: 1px solid #ccc; /* a light border to indicate the space */
+  padding: 10px;
+  border-radius: 4px;
+  background-color: #fff; /* white background */
+  line-height: 40px; /* to vertically center the text */
+  color: #555; /* default text color */
+  overflow: hidden; /* in case the address is too long, it won't overflow */
+  text-overflow: ellipsis; /* if the address is cut off, it'll end with "..." */
+  white-space: nowrap; /* prevents the address from wrapping to the next line */
+}

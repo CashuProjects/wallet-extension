@@ -10,21 +10,22 @@ if (paymentField) {
 
     payWithCashuButton.addEventListener('click', () => {
         const invoice = paymentField.value;
-        chrome.runtime.sendMessage({ action: "payInvoice", invoice: invoice }, response => {
-            if (response.success) {
-                alert('Payment successful!');
-            } else {
-                alert('Payment failed. Please try again.');
-            }
-        });
+        browser.runtime.sendMessage({ action: "payInvoice", invoice: invoice })
+            .then(response => {
+                if (response.success) {
+                    alert('Payment successful!');
+                } else {
+                    alert('Payment failed. Please try again.');
+                }
+            });
     });
 }
 
 function injectScript(content) {
-  const script = document.createElement('script');
-  script.textContent = content;
-  (document.head || document.documentElement).appendChild(script);
-  script.remove();
+    const script = document.createElement('script');
+    script.textContent = content;
+    (document.head || document.documentElement).appendChild(script);
+    script.remove();
 }
 
 // Example: Inject a script to retrieve a variable from the page
@@ -37,8 +38,8 @@ injectScript(`
 
 // Listen for messages from the page
 window.addEventListener('message', event => {
-  if (event.source !== window) return;
-  if (event.data.type && event.data.type === 'FROM_PAGE') {
-      console.log('Received from page:', event.data.data);
-  }
+    if (event.source !== window) return;
+    if (event.data.type && event.data.type === 'FROM_PAGE') {
+        console.log('Received from page:', event.data.data);
+    }
 });

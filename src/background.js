@@ -1,3 +1,5 @@
+import browser from 'webextension-polyfill';
+
 const MINT_URL = 'https://mint-url-here.com'; // Replace with the actual mint URL
 
 function requestMintPublicKeys() {
@@ -5,7 +7,7 @@ function requestMintPublicKeys() {
     .then(response => response.json())
     .then(data => {
       // Store the keys in local storage or another appropriate storage mechanism
-      chrome.storage.local.set({ mintKeys: data });
+      browser.storage.local.set({ mintKeys: data });
       return data;
     })
     .catch(error => {
@@ -113,52 +115,52 @@ function payLightningInvoice(invoice) {
     });
 }
 
-chrome.runtime.onInstalled.addListener(details => {
+browser.runtime.onInstalled.addListener(details => {
   if (details.reason === "install" || details.reason === "update") {
     requestMintPublicKeys();
   }
 });
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  switch (message.action) {
-    case "mintTokens":
-      requestMint(message.amount)
-        .then(({ payment_request, hash }) => {
-          // Here, you'd typically initiate the payment using the payment_request
-          // Once the payment is done, you can proceed with the minting process
-          const secrets = generateSecrets(message.amount);
-          const outputs = generateOutputs(secrets);
-          return mintTokens(outputs, hash);
-        })
-        .then(data => sendResponse(data))
-        .catch(error => sendResponse({ error: error.message }));
-      break;
+browser.runtime.onMessage.addListener(async (message, sender, sendResponse) => {
+  try {
+    switch (message.action) {
+      case "mintTokens":
+        const { payment_request, hash } = await requestMint(message.amount);
+        // Here, you'd typically initiate the payment using the payment_request
+        // Once the payment is done, you can proceed with the minting process
+        const secrets = generateSecrets(message.amount);
+        const outputs = generateOutputs(secrets);
+        const data = await mintTokens(outputs, hash);
+        sendResponse(data);
+        break;
 
-    case "sendTokens":
-      const { total, aliceRemainingTokens } = splitTokens(message.total, message.alice_balance);
-      const serializedTokens = serializeTokensForSending(total);
-      // Send the serialized tokens to the recipient (this would involve another mechanism, possibly a content script or direct communication)
-      sendResponse({ success: true, tokens: serializedTokens });
-      break;
+      case "sendTokens":
+        const { total, aliceRemainingTokens } = splitTokens(message.total, message.alice_balance);
+        const serializedTokens = serializeTokensForSending(total);        
+        // Send the serialized tokens to the recipient (this would involve another mechanism, possibly a content script or direct communication)
+        sendResponse({ success: true, tokens: serializedTokens });
+        break;
 
-    case "redeemTokens":
-      const redeemedTokens = redeemTokens(message.tokens);
-      sendResponse({ tokens: redeemedTokens });
-      break;
+      case "redeemTokens":
+        const redeemedTokens = redeemTokens(message.tokens);
+        sendResponse({ tokens: redeemedTokens });
+        break;
 
-    case "checkBurnedTokens":
-      const unburnedTokens = checkBurnedTokens(message.tokens);
-      sendResponse({ tokens: unburnedTokens });
-      break;
+      case "checkBurnedTokens":
+        const unburnedTokens = checkBurnedTokens(message.tokens);
+        sendResponse({ tokens: unburnedTokens });
+        break;
 
-    case "payInvoice":
-      payLightningInvoice(message.invoice)
-        .then(data => sendResponse(data))
-        .catch(error => sendResponse({ error: error.message }));
-      break;
+      case "payInvoice":
+        const invoiceData = await payLightningInvoice(message.invoice);
+        sendResponse(invoiceData);
+        break;
 
-    default:
-      sendResponse({ error: "Unknown action" });
+      default:
+        sendResponse({ error: "Unknown action" });
+    }
+  } catch (error) {
+    sendResponse({ error: error.message });
   }
 
   // This ensures asynchronous use of sendResponse
@@ -166,21 +168,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 // Set up an alarm to check burned tokens every 10 minutes
-chrome.alarms.create("checkBurnedTokens", { periodInMinutes: 10 });
+browser.alarms.create("checkBurnedTokens", { periodInMinutes: 10 });
 
-chrome.alarms.onAlarm.addListener(alarm => {
+browser.alarms.onAlarm.addListener(alarm => {
   if (alarm.name === "checkBurnedTokens") {
     // Retrieve tokens from storage and check if they've been burned
-    chrome.storage.local.get("tokens", ({ tokens }) => {
+    browser.storage.local.get("tokens", ({ tokens }) => {
       const unburnedTokens = checkBurnedTokens(tokens);
       // Update storage with the unburned tokens
-      chrome.storage.local.set({ tokens: unburnedTokens });
+      browser.storage.local.set({ tokens: unburnedTokens });
     });
   }
 });
 
 // Example: Send a message to the active tab's content script
-chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+browser.tabs.query({ active: true, currentWindow: true }, tabs => {
   const activeTab = tabs[0];
-  chrome.tabs.sendMessage(activeTab.id, { action: "autofillPayment", data: { /* ... */ } });
+  browser.tabs.sendMessage(activeTab.id, { action: "autofillPayment", data: { /* ... */ } });
 });
