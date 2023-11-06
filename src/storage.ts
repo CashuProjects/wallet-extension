@@ -1,4 +1,4 @@
-import { Proof } from '@cashu/cashu-ts';
+import { Proof, Token } from '@cashu/cashu-ts';
 
 // represents how tokens are stored in the storage
 export interface TokenStore {
@@ -37,7 +37,7 @@ export interface Setting {
 }
 
 export interface Storage {
-	tokens: TokenStore[];
+	tokens: TokenStore;
 	transactionHistory: TransactionHistory[];
 	invoice: string[]; //  Bolt11 invoice
 	setting: Setting;
@@ -73,7 +73,6 @@ export function getStorageItem<Key extends keyof Storage>(key: Key): Promise<Sto
 			if (chrome.runtime.lastError) {
 				return reject(chrome.runtime.lastError);
 			}
-
 			return resolve((result as Storage)[key]);
 		});
 	});
