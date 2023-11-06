@@ -1,6 +1,6 @@
-import { Token } from '@cashu/cashu-ts';
+import { Token, TokenEntry, Proof } from '@cashu/cashu-ts';
 
-export function generateRandomString(length) {
+export function generateRandomString(length: number) {
 	let result = '';
 	const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
 	const charactersLength = characters.length;
@@ -8,6 +8,10 @@ export function generateRandomString(length) {
 		result += characters.charAt(Math.floor((Date.now() * Math.random()) % charactersLength));
 	}
 	return result;
+}
+
+export function sortProofsById(proofs: Array<Proof>) {
+	return proofs.sort((a, b) => a.id.localeCompare(b.id));
 }
 
 /**
@@ -37,3 +41,7 @@ export function cleanToken(token: Token): Token {
 		token: Object.values(tokenEntryMap).map(x => ({ ...x, proofs: sortProofsById(x.proofs) }))
 	};
 }
+
+export function request() {}
+
+export function reply() {}

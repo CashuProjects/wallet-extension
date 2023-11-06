@@ -9,38 +9,34 @@ import {
 	Proof
 } from '@cashu/cashu-ts';
 
-import {
-	TokenStore,
-	getStorageItem,
-	setStorageItem,
-} from './storage.js';
+import { TokenStore, getStorageItem, setStorageItem } from './storage.js';
 
 import { cleanToken } from './util.js';
 
-interface WalletIndexedWithMintUrl {
+export interface WalletIndexedWithMintUrl {
 	[index: string]: CashuWallet;
 }
 
-interface Balance {
+export interface Balance {
 	[index: string]: number;
 }
 
-interface RequestMintResponse {
+export interface RequestMintResponse {
 	pr: string; // Bolt11 invoice
 	hash: string; // used to verify invoice has been paid
 }
 
-class Wallet {
-	_wallets: WalletIndexedWithMintUrl[];
+export class Wallet {
+	_wallets: WalletIndexedWithMintUrl;
 	_mints: CashuMint[];
 
 	constructor(mintUrls: string[]) {
 		this._mints = [];
-		this._wallets = [];
+		this._wallets = {};
 
-		for (mintUrl of mintUrls) {
-			mint = new CashuMint(mintUrl);
-			wallet = new CashuWallet(mint);
+		for (let mintUrl of mintUrls) {
+			let mint = new CashuMint(mintUrl);
+			let wallet = new CashuWallet(mint);
 			this._wallets[mintUrl] = wallet;
 			this._mints.push(mint);
 		}
@@ -48,16 +44,16 @@ class Wallet {
 
 	async requestMint(amount: number, mintUrl: string): Promise<RequestMintResponse> {
 		//  return Bolt11 invoice to be paid and hash for verifying
-		return await this._wallet[mintUrl].requestMint(amount);
+		return await this._wallets[mintUrl].requestMint(amount);
 	}
 
 	async invoiceHasBeenPaid(amount: number, hash: string, mintUrl: string) {
-		const { proofs } = await this._wallet[mintUrl].requestMint(amount, hash);
+		const { proofs } = await this._wallets[mintUrl].requestTokens(amount, hash);
 		// Add proofs to Storage
-		await storeProofs(proofs, mintUrl);
+		await this.storeProofs(proofs, mintUrl);
 	}
 
-	async addfunds(tokenStr: string, amount?: number) {
+	async addfunds(encodedToken: string, amount?: number) {
 		const response = cleanToken(getDecodedToken(encodedToken));
 
 		const tokenFromUnsupportedMint: Array<TokenEntry> = [];
@@ -74,7 +70,9 @@ class Wallet {
 			}
 
 			try {
-				const { proofsWithError, proofs } = await CashuWallet.receiveTokenEntry(tokenEntry);
+				const { proofsWithError, proofs } = await this._wallets[
+					tokenEntry.mint
+				].receiveTokenEntry(tokenEntry);
 				if (proofsWithError?.length) {
 					tokenEntriesWithError.push(tokenEntry);
 					continue;
@@ -87,38 +85,38 @@ class Wallet {
 		}
 		// There is a possibility of a token having some error or been spent alreadly spent
 
-		totalSum = 0;
+		let totalSum = 0;
 		// Add tokens to db
-		for (token of tokenEntries) {
-			for (proof of token.proofs) {
+		for (let token of tokenEntries) {
+			for (let proof of token.proofs) {
 				totalSum += proof.amount;
 			}
-			await storeProofs(token.proofs, token.mint);
+			await this.storeProofs(token.proofs, token.mint);
 		}
 
 		return {
 			token: { token: tokenEntries },
-			tokensWithErrors,
+			tokensWithErrors: { token: tokenEntriesWithError },
 			tokenFromUnsupportedMint,
 			totalSum
 		};
 	}
 
-	async getbalance(mintUrl?: string): Balance {
-		tokens = await getStorageItem('tokens');
-		balance = {};
-		totalSum = 0;
+	async getbalance(mintUrl?: string): Promise<Balance> {
+		let tokens = await getStorageItem('tokens');
+		let balance = <Balance>{};
+		let totalSum = 0;
 		if (mintUrl) {
-			for (proof of tokens[mintUrl]) {
+			for (let proof of tokens[mintUrl]) {
 				totalSum += proof.amount;
 			}
 			balance[mintUrl] = totalSum;
 		} else {
-			for (mint of Object.keys(tokens)) {
-				for (proof of tokens[mint]) {
+			for (let mint of Object.keys(tokens)) {
+				for (let proof of tokens[mint]) {
 					totalSum += proof.amount;
 				}
-				balance[token] = totalSum;
+				balance[mint] = totalSum;
 				totalSum = 0;
 			}
 		}
@@ -126,13 +124,13 @@ class Wallet {
 		return balance;
 	}
 
-	async payoutToLN(invoice: string, mintUrl: string, amount?: number): boolean {
-		wallet = this._wallets[mintUrl];
-		feeReserve = wallet.getFee(invoice);
+	async payoutToLN(invoice: string, mintUrl: string, amount?: number): Promise<boolean> {
+		let wallet = this._wallets[mintUrl];
+		let feeReserve = await wallet.getFee(invoice);
 
-		decodedInvoice = getDecodedLnInvoice(invoice);
+		let decodedInvoice = getDecodedLnInvoice(invoice);
 
-		for (section of decodedInvoice.sections) {
+		for (let section of decodedInvoice.sections) {
 			if (section['name'] == 'amount') {
 				amount = amount || section['value'];
 				//assert(amount == section['value'])
@@ -140,10 +138,10 @@ class Wallet {
 		}
 
 		// Get proof for amount
-		proofs = await this.getProofs(amount, mintUrl);
+		let { proofs } = await this.getProofs(amount, mintUrl);
 
 		// Melt tokens and pay Invoice
-		const { isPaid, preimage, change } = wallet.payLnInvoice(invoice, proofs, feeReserve);
+		const { isPaid } = await wallet.payLnInvoice(invoice, proofs, feeReserve);
 
 		if (isPaid) {
 			// Delete proofs
@@ -152,18 +150,22 @@ class Wallet {
 		return isPaid;
 	}
 
-	async swap(from: string, to: string, amount) {
-		wallet1 = this._wallets[to];
-		data1 = this._wallets[to].requestMint(amount);
-		feeReserve1 = this._wallets[from].getFee(data1.pr);
-		spend_proofs = getProofs(amount + feeReserve, from);
-		const { isPaid, preimage, change } = this._wallets[from].payLnInvoice(
-			data1.pr,
+	async swap(from: string, to: string, amount: number) {
+		let data = await this._wallets[to].requestMint(amount);
+		let feeReserve = await this._wallets[from].getFee(data.pr);
+		let { proofs: spend_proofs } = await this.getProofs(amount + feeReserve, from);
+		const { isPaid, preimage, change } = await this._wallets[from].payLnInvoice(
+			data.pr,
 			spend_proofs,
 			feeReserve
 		);
+
+		if (change) {
+			await this.storeProofs(change, from);
+		}
+
 		if (isPaid) {
-			const { proofs } = this._wallets[to].requestTokens(amount, data.hash);
+			const { proofs } = await this._wallets[to].requestTokens(amount, data.hash);
 
 			await this.storeProofs(proofs, to);
 			await this.deleteProofs(spend_proofs, from);
@@ -172,38 +174,43 @@ class Wallet {
 	}
 
 	async storeProofs(proofs: Proof[], mintUrl: string) {
-		tokens = await getStorageItem('tokens');
+		console.log('storeProofs');
+		let tokens = await getStorageItem('tokens');
+
+		console.log('storeProofs 2');
 		tokens[mintUrl] = [...tokens[mintUrl], ...proofs];
 		await setStorageItem('tokens', tokens);
+
+		console.log('exit storeProofs');
 	}
 
 	async getProofs(amount: number, mintUrl: string) {
-		totalSum = 0;
-		responseproofs = [];
-		proofs = (await getStorageItem('tokens'))[mintUrl];
+		let totalSum = 0;
+		let responseproofs = [];
+		const proofs = (await getStorageItem('tokens'))[mintUrl];
 
-		iterator = 0;
+		let iterator = 0;
 		while (totalSum <= amount && iterator < proofs.length) {
 			totalSum += proofs[iterator].amount;
 			responseproofs.push(proofs[iterator]);
 			iterator++;
 		}
 		if (totalSum > amount) {
-			response = this._wallets[mintUrl].send(amount, responseproofs);
+			let response = await this._wallets[mintUrl].send(amount, responseproofs);
 			await this.deleteProofs(responseproofs, mintUrl);
 			await this.storeProofs(response.returnChange, mintUrl);
 			await this.storeProofs(response.send, mintUrl);
 			responseproofs = response.send;
 			totalSum = amount;
 		}
-		return { responseproofs, totalSum };
+		return { proofs: responseproofs, totalSum };
 	}
 
 	async deleteProofs(proofs: Proof[], mintUrl: string) {
-		tokens = await getStorageItem('tokens');
+		const tokens = await getStorageItem('tokens');
 
-		store_proofs = tokens[mintUrl].filter(tk_proof => {
-			for (proof of proofs) {
+		const store_proofs = tokens[mintUrl].filter(tk_proof => {
+			for (let proof of proofs) {
 				if (tk_proof.secret == proof.secret) {
 					return false;
 				}
