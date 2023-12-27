@@ -1,4 +1,6 @@
 import { Token, TokenEntry, Proof } from '@cashu/cashu-ts';
+import { argon2id, argon2Verify } from 'hash-wasm';
+import {getStorageItem, setStorageItem} from './storage';
 
 export function generateRandomString(length: number) {
 	let result = '';
@@ -62,4 +64,40 @@ export async function decryptData(cipher: string, password: string) {
     cipher
   );
   return JSON.parse(decrypted.toString(enc.Utf8));
+}
+
+export async function verifyPassword(password: string, hash: string): boolean {
+  return await argon2Verify({
+    password,
+    hash,
+  });
+}
+
+export async function updatePassword(newPassword: string, prevPassword?: string, hash?: string) {
+  if (prevPassword) {
+    const isvalid = verifyPassword(prevPassword, hash);
+    if (!isvalid) {
+      throw new Error('Invalid password');
+    }
+  }
+  const salt = new Uint8Array(16);
+  window.crypto.getRandomValues(salt);
+
+  const key = await argon2id({
+    password: newPassword,
+    salt, // salt is a buffer containing random bytes
+    parallelism: 2,
+    iterations: 256,
+    memorySize: 512, // use 512KB memory
+    hashLength: 32, // output size = 32 bytes
+    outputType: 'encoded', // return standard encoded string containing parameters needed to verify the key
+  });
+
+  // Update Password
+  const setting = await getStorageItem('setting');
+  setting.hash = key;
+  console.log('setting: ', setting);
+  await setStorageItem('setting', setting);
+
+  return key;
 }
