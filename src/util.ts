@@ -42,6 +42,24 @@ export function cleanToken(token: Token): Token {
 	};
 }
 
-export function request() {}
+export async function encryptData(data: unknown, password: string): string {
+  const setting = getStorageItem('setting');
+  return await window.crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: setting.iv },
+    password,
+    JSON.stringify(data),
+  );
+}
 
-export function reply() {}
+export async function decryptData(cipher: string, password: string) {
+  const setting = getStorageItem('setting');
+  const decrypted = await window.crypto.subtle.decrypt(
+    {
+      name: 'AES-GCM',
+      iv: setting.iv
+    },
+    password,
+    cipher
+  );
+  return JSON.parse(decrypted.toString(enc.Utf8));
+}
